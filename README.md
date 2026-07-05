@@ -48,6 +48,26 @@ python -m benchmarks.beam.run \
   --chat-sizes 100K --conversations 0-9
 ```
 
+### Option C: GoodMemory (local, no Docker)
+
+Runs against [GoodMemory](https://github.com/hjqcan/GoodMemory)'s packaged
+HTTP bridge (local-first, SQLite-backed; requires [Bun](https://bun.sh)).
+
+```bash
+npm install -g goodmemory
+goodmemory-http-bridge          # serves http://localhost:8739
+
+# Run a benchmark against it
+python -m benchmarks.locomo.run \
+  --project-name my-goodmemory-test \
+  --backend goodmemory
+```
+
+Point at a non-default bridge with `--goodmemory-host` or `GOODMEMORY_HOST`.
+Each run should use a fresh `--project-name`: GoodMemory isolates state by
+scope (the user id embeds the project name) and the bridge intentionally has
+no bulk delete endpoint.
+
 ### Option B: Mem0 OSS (Self-Hosted)
 
 Requires Docker and Docker Compose. This starts a local Mem0 server backed by Qdrant.
