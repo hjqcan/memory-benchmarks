@@ -76,6 +76,47 @@ python -m benchmarks.beam.run --project-name my-first-test --chat-sizes 100K --c
 
 By default, the OSS server uses OpenAI for fact extraction (`gpt-4o-mini`) and embeddings (`text-embedding-3-small`). See [Custom Models](#custom-models) for using Azure, Ollama, or other providers.
 
+### Option C: GoodMemory (Self-Hosted Bridge)
+
+[GoodMemory](https://github.com/hjqcan/GoodMemory) runs as a single-process HTTP
+bridge (Bun + SQLite, bearer-token auth required by default). Start it with an
+LLM extractor and an embedding endpoint configured — the benchmark numbers come
+from GoodMemory's LLM-assisted extraction plus its semantic candidate union, so
+a bare rules-only/no-embedding bridge will under-report:
+
+```bash
+# From the GoodMemory repo (Docker one-liner also works — see its README):
+GOODMEMORY_HTTP_BRIDGE_TOKEN=your-token \
+GOODMEMORY_ASSISTED_EXTRACTOR_PROVIDER=openai \
+GOODMEMORY_ASSISTED_EXTRACTOR_MODEL=gpt-4o-mini \
+GOODMEMORY_ASSISTED_EXTRACTOR_API_KEY=$OPENAI_API_KEY \
+GOODMEMORY_EMBEDDING_PROVIDER=openai \
+GOODMEMORY_EMBEDDING_MODEL=text-embedding-3-small \
+GOODMEMORY_EMBEDDING_API_KEY=$OPENAI_API_KEY \
+  bun scripts/goodmemory-http-bridge.ts --port 8739
+# Bridge:  http://localhost:8739  (health: /healthz)
+```
+
+Then point any benchmark at it with `MEMORY_SYSTEM=goodmemory`:
+
+```bash
+export MEMORY_SYSTEM=goodmemory
+export GOODMEMORY_BRIDGE_HOST=http://localhost:8739
+export GOODMEMORY_HTTP_BRIDGE_TOKEN=your-token
+
+python -m benchmarks.locomo.run --project-name goodmemory-test
+python -m benchmarks.longmemeval.run --project-name goodmemory-test --all-questions
+python -m benchmarks.beam.run --project-name goodmemory-test --chat-sizes 100K --conversations 0-9
+```
+
+The adapter (`benchmarks/common/goodmemory_client.py`) speaks GoodMemory's HTTP
+bridge contract and returns the same result shape as the Mem0 client, so the
+runners are otherwise unchanged. `add` drives GoodMemory's LLM-assisted
+extraction; `search` maps GoodMemory's ranked recall to per-memory results with
+rank-descending scores so the harness's cutoff slicing measures GoodMemory's own
+ranking. Set `GOODMEMORY_BRIDGE_EXTRACTION_STRATEGY=rules-only` only to measure
+the deterministic floor.
+
 ### View results in the UI
 
 ```bash

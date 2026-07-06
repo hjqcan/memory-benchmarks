@@ -1021,12 +1021,23 @@ async def async_main() -> None:
 
     # Init clients
     backend = os.getenv("MEM0_BACKEND", args.backend)
-    mem0 = Mem0Client(
-        mode=backend,
-        host=args.mem0_host,
-        api_key=args.mem0_api_key if backend == "cloud" else None,
-        rpm=args.rpm,
-    )
+    # MEMORY_SYSTEM selects the backend memory system (default: mem0). GoodMemory
+    # is served over its HTTP bridge; the client duck-types Mem0Client, so the
+    # rest of the runner is unchanged. See benchmarks/common/goodmemory_client.py.
+    if os.getenv("MEMORY_SYSTEM", "mem0").lower() == "goodmemory":
+        from benchmarks.common.goodmemory_client import GoodMemoryClient
+        mem0 = GoodMemoryClient(
+            host=os.getenv("GOODMEMORY_BRIDGE_HOST"),
+            token=os.getenv("GOODMEMORY_HTTP_BRIDGE_TOKEN") or os.getenv("GOODMEMORY_BRIDGE_TOKEN"),
+            rpm=args.rpm,
+        )
+    else:
+        mem0 = Mem0Client(
+            mode=backend,
+            host=args.mem0_host,
+            api_key=args.mem0_api_key if backend == "cloud" else None,
+            rpm=args.rpm,
+        )
     answerer = LLMClient(
         model=args.answerer_model, provider=args.provider, rpm=args.rpm
     )
