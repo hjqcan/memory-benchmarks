@@ -59,9 +59,13 @@ class GoodMemoryClient:
         retry_delay: Base delay in seconds between retries (linear backoff).
         rpm: Requests per minute rate limit.
         timeout: HTTP request timeout in seconds.
-        recall_strategy: GoodMemory recall strategy ("auto", "rules-only",
-              or "hybrid"). The default "auto" lets the bridge decide based on
-              its configuration; "rules-only" needs no embedding provider.
+        recall_strategy: GoodMemory recall strategy ("hybrid", "rules-only",
+              or "auto"). Defaults to "hybrid" — the bridge coerces any
+              non-"hybrid" strategy (including "auto") to rules-only, which
+              cannot surface semantically-relevant facts, so hybrid is required
+              for representative recall (it needs an embedding endpoint + the
+              recommended retrieval preset on the bridge; see the README).
+              Set "rules-only" to measure the lexical floor with no embedding.
     """
 
     def __init__(
@@ -78,7 +82,9 @@ class GoodMemoryClient:
         self.token = token or os.getenv("GOODMEMORY_HTTP_BRIDGE_TOKEN", "")
         self.max_retries = max_retries
         self.retry_delay = retry_delay
-        self.recall_strategy = recall_strategy or os.getenv("GOODMEMORY_RECALL_STRATEGY")
+        self.recall_strategy = (
+            recall_strategy or os.getenv("GOODMEMORY_RECALL_STRATEGY") or "hybrid"
+        )
         self.timeout = aiohttp.ClientTimeout(total=timeout)
         self.limiter = AsyncLimiter(rpm, 60)
         self._session: aiohttp.ClientSession | None = None

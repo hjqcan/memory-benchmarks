@@ -51,22 +51,39 @@ python -m benchmarks.beam.run \
 ### Option C: GoodMemory (local, no Docker)
 
 Runs against [GoodMemory](https://github.com/hjqcan/GoodMemory)'s packaged
-HTTP bridge (local-first, SQLite-backed; requires [Bun](https://bun.sh)).
+HTTP bridge (local-first; requires [Bun](https://bun.sh)). Ingestion is
+deterministic (every turn is written verbatim, no LLM extractor needed), but
+**representative recall needs the bridge started with an embedding endpoint,
+the `recommended` retrieval preset (GoodMemory's semantic candidate union),
+and in-memory storage** (its pure-JS vector index needs no native libraries).
+Without these the bridge falls back to a lexical-only floor and under-reports.
 
 ```bash
 npm install -g goodmemory
-goodmemory-http-bridge          # serves http://localhost:8739
+
+# Bridge with the semantic recall stack (any OpenAI-compatible embedding
+# endpoint works — OpenAI, OpenRouter, Azure, a local Ollama, …):
+GOODMEMORY_HTTP_BRIDGE_TOKEN=your-token \
+GOODMEMORY_STORAGE_PROVIDER=memory \
+GOODMEMORY_HTTP_BRIDGE_RETRIEVAL_PRESET=recommended \
+GOODMEMORY_EMBEDDING_PROVIDER=openai \
+GOODMEMORY_EMBEDDING_MODEL=text-embedding-3-small \
+GOODMEMORY_EMBEDDING_API_KEY=$OPENAI_API_KEY \
+  goodmemory-http-bridge          # serves http://localhost:8739
 
 # Run a benchmark against it
-python -m benchmarks.locomo.run \
+GOODMEMORY_HTTP_BRIDGE_TOKEN=your-token python -m benchmarks.locomo.run \
   --project-name my-goodmemory-test \
   --backend goodmemory
 ```
 
+The client requests `hybrid` recall by default (the bridge coerces any other
+strategy to the rules-only floor); override with `GOODMEMORY_RECALL_STRATEGY`.
 Point at a non-default bridge with `--goodmemory-host` or `GOODMEMORY_HOST`.
 Each run should use a fresh `--project-name`: GoodMemory isolates state by
 scope (the user id embeds the project name) and the bridge intentionally has
-no bulk delete endpoint.
+no bulk delete endpoint. In-memory storage is fresh per bridge process, which
+suits a benchmark run.
 
 ### Option B: Mem0 OSS (Self-Hosted)
 
