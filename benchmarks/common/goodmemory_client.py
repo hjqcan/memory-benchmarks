@@ -239,6 +239,11 @@ class GoodMemoryClient:
             "query": query,
             "maxTokens": max_tokens,
             "retrievalProfile": "coding_agent",
+            # hybrid activates GoodMemory's semantic recall (embedding + BM25 +
+            # semantic candidate union). The bridge forces any non-"hybrid"
+            # strategy to rules-only, which cannot surface semantically-relevant
+            # facts — so this is required for benchmark-representative recall.
+            "strategy": "hybrid",
             "scope": self._scope_body(user_id),
         }
         headers = self._scope_headers(user_id)

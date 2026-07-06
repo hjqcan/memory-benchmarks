@@ -79,20 +79,28 @@ By default, the OSS server uses OpenAI for fact extraction (`gpt-4o-mini`) and e
 ### Option C: GoodMemory (Self-Hosted Bridge)
 
 [GoodMemory](https://github.com/hjqcan/GoodMemory) runs as a single-process HTTP
-bridge (Bun + SQLite, bearer-token auth required by default). Start it with an
-LLM extractor and an embedding endpoint configured — the benchmark numbers come
-from GoodMemory's LLM-assisted extraction plus its semantic candidate union, so
-a bare rules-only/no-embedding bridge will under-report:
+bridge (Bun, bearer-token auth required by default). The benchmark numbers come
+from GoodMemory's LLM-assisted extraction **plus** its semantic candidate union,
+so the bridge must be started with all four pieces — an LLM extractor, an
+embedding endpoint, the `recommended` retrieval preset (the semantic union), and
+in-memory storage (its pure-JS vector index needs no native libraries). A bare
+rules-only / no-embedding / no-preset bridge under-reports badly:
 
 ```bash
-# From the GoodMemory repo (Docker one-liner also works — see its README):
+# From the GoodMemory repo. Any OpenAI-compatible endpoint works (OpenAI,
+# OpenRouter, Azure, …); pick an extractor model that emits well-formed
+# extractions (e.g. gpt-4o-mini) — a weak proxy can yield empty facts.
 GOODMEMORY_HTTP_BRIDGE_TOKEN=your-token \
+GOODMEMORY_STORAGE_PROVIDER=memory \
+GOODMEMORY_HTTP_BRIDGE_RETRIEVAL_PRESET=recommended \
 GOODMEMORY_ASSISTED_EXTRACTOR_PROVIDER=openai \
 GOODMEMORY_ASSISTED_EXTRACTOR_MODEL=gpt-4o-mini \
 GOODMEMORY_ASSISTED_EXTRACTOR_API_KEY=$OPENAI_API_KEY \
+GOODMEMORY_ASSISTED_EXTRACTOR_BASE_URL=https://api.openai.com/v1 \
 GOODMEMORY_EMBEDDING_PROVIDER=openai \
 GOODMEMORY_EMBEDDING_MODEL=text-embedding-3-small \
 GOODMEMORY_EMBEDDING_API_KEY=$OPENAI_API_KEY \
+GOODMEMORY_EMBEDDING_BASE_URL=https://api.openai.com/v1 \
   bun scripts/goodmemory-http-bridge.ts --port 8739
 # Bridge:  http://localhost:8739  (health: /healthz)
 ```
@@ -112,10 +120,14 @@ python -m benchmarks.beam.run --project-name goodmemory-test --chat-sizes 100K -
 The adapter (`benchmarks/common/goodmemory_client.py`) speaks GoodMemory's HTTP
 bridge contract and returns the same result shape as the Mem0 client, so the
 runners are otherwise unchanged. `add` drives GoodMemory's LLM-assisted
-extraction; `search` maps GoodMemory's ranked recall to per-memory results with
-rank-descending scores so the harness's cutoff slicing measures GoodMemory's own
-ranking. Set `GOODMEMORY_BRIDGE_EXTRACTION_STRATEGY=rules-only` only to measure
-the deterministic floor.
+extraction; `search` requests hybrid retrieval and maps GoodMemory's ranked
+recall to per-memory results with rank-descending scores, so the harness's
+cutoff slicing measures GoodMemory's own ranking. Set
+`GOODMEMORY_BRIDGE_EXTRACTION_STRATEGY=rules-only` only to measure the
+deterministic floor.
+
+> Requires a GoodMemory build whose bridge supports
+> `GOODMEMORY_HTTP_BRIDGE_RETRIEVAL_PRESET` (the semantic-union preset flag).
 
 ### View results in the UI
 
