@@ -41,12 +41,29 @@ from __future__ import annotations
 import asyncio
 import logging
 import os
+from datetime import datetime, timezone
 from typing import Any
 
 import aiohttp
 from aiolimiter import AsyncLimiter
 
 logger = logging.getLogger(__name__)
+
+
+def format_observed_content(
+    content: str,
+    observation_date: str | None = None,
+    timestamp: int | None = None,
+) -> str:
+    """Preserve benchmark event time in the text GoodMemory indexes."""
+    if timestamp is not None:
+        observed_at = datetime.fromtimestamp(timestamp, tz=timezone.utc).isoformat()
+        observed_at = observed_at.replace("+00:00", "Z")
+    elif observation_date:
+        observed_at = observation_date
+    else:
+        return content
+    return f"[Observed at {observed_at}] {content}"
 
 
 class GoodMemoryClient:
@@ -131,9 +148,9 @@ class GoodMemoryClient:
     ) -> dict | None:
         """Write a message batch into the user's memory scope.
 
-        ``observation_date``/``timestamp`` are folded into message content
-        annotations are not needed: GoodMemory keeps source timestamps on the
-        write path via the bridge's remember contract.
+        ``observation_date``/``timestamp`` are folded into message content so
+        the timestamp survives the bridge's intentionally small remember
+        contract and remains visible to retrieval and answer generation.
         """
         session = await self._get_session()
         # Benchmark seeding must ingest every turn deterministically. This
@@ -146,10 +163,14 @@ class GoodMemoryClient:
         kept = [
             {
                 "role": "user",
-                "content": (
-                    m["content"]
-                    if m.get("role", "user") == "user"
-                    else f"[role={m.get('role', 'user')}] {m['content']}"
+                "content": format_observed_content(
+                    (
+                        m["content"]
+                        if m.get("role", "user") == "user"
+                        else f"[role={m.get('role', 'user')}] {m['content']}"
+                    ),
+                    observation_date=observation_date,
+                    timestamp=timestamp,
                 ),
             }
             for m in messages

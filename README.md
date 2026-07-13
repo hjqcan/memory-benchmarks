@@ -52,7 +52,8 @@ python -m benchmarks.beam.run \
 
 Runs against [GoodMemory](https://github.com/hjqcan/GoodMemory)'s packaged
 HTTP bridge (local-first; requires [Bun](https://bun.sh)). Ingestion is
-deterministic (every turn is written verbatim, no LLM extractor needed), but
+deterministic (every turn is written verbatim, no LLM extractor needed), and
+session timestamps are preserved as UTC observation prefixes. However,
 **representative recall needs the bridge started with an embedding endpoint,
 the `recommended` retrieval preset (GoodMemory's semantic candidate union),
 and in-memory storage** (its pure-JS vector index needs no native libraries).
