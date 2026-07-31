@@ -53,24 +53,19 @@ python -m benchmarks.beam.run \
 Runs against [GoodMemory](https://github.com/hjqcan/GoodMemory)'s packaged
 HTTP bridge (local-first; requires [Bun](https://bun.sh)). Ingestion is
 deterministic (every turn is written verbatim, no LLM extractor needed), and
-session timestamps are preserved as UTC observation prefixes. However,
-**representative recall needs the bridge started with an embedding endpoint,
-the `recommended` retrieval preset (GoodMemory's semantic candidate union),
-and in-memory storage** (its pure-JS vector index needs no native libraries).
-Without these the bridge falls back to a lexical-only floor and under-reports.
+session timestamps are preserved as UTC observation prefixes. Start the bridge
+with the provider-free `recommended` preset for multi-granular BM25, entity,
+and reciprocal-rank fusion. Embeddings are optional and add a dense channel;
+they are not required for representative provider-free recall.
 
 ```bash
-npm install -g goodmemory
+npm install -g goodmemory@0.7.0
 
-# Bridge with the semantic recall stack (any OpenAI-compatible embedding
-# endpoint works — OpenAI, OpenRouter, Azure, a local Ollama, …):
+# Use an ephemeral store for an isolated benchmark run. The official
+# goodmemory-client dependency from requirements.txt owns the wire contract.
 GOODMEMORY_HTTP_BRIDGE_TOKEN=your-token \
 GOODMEMORY_STORAGE_PROVIDER=memory \
-GOODMEMORY_HTTP_BRIDGE_RETRIEVAL_PRESET=recommended \
-GOODMEMORY_EMBEDDING_PROVIDER=openai \
-GOODMEMORY_EMBEDDING_MODEL=text-embedding-3-small \
-GOODMEMORY_EMBEDDING_API_KEY=$OPENAI_API_KEY \
-  goodmemory-http-bridge          # serves http://localhost:8739
+  goodmemory-http-bridge --recommended  # serves http://localhost:8739
 
 # Run a benchmark against it
 GOODMEMORY_HTTP_BRIDGE_TOKEN=your-token python -m benchmarks.locomo.run \
@@ -78,8 +73,9 @@ GOODMEMORY_HTTP_BRIDGE_TOKEN=your-token python -m benchmarks.locomo.run \
   --backend goodmemory
 ```
 
-The client requests `hybrid` recall by default (the bridge coerces any other
-strategy to the rules-only floor); override with `GOODMEMORY_RECALL_STRATEGY`.
+The adapter requests `auto` recall by default and logs the bridge's requested
+and resolved routing whenever it falls back; override with
+`GOODMEMORY_RECALL_STRATEGY`.
 Point at a non-default bridge with `--goodmemory-host` or `GOODMEMORY_HOST`.
 Each run should use a fresh `--project-name`: GoodMemory isolates state by
 scope (the user id embeds the project name) and the bridge intentionally has
