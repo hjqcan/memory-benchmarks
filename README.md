@@ -59,7 +59,7 @@ and reciprocal-rank fusion. Embeddings are optional and add a dense channel;
 they are not required for representative provider-free recall.
 
 ```bash
-npm install -g goodmemory@0.7.0
+npm install -g goodmemory@0.7.1
 
 # Use an ephemeral store for an isolated benchmark run. The official
 # goodmemory-client dependency from requirements.txt owns the wire contract.

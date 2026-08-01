@@ -3,7 +3,7 @@ Async benchmark adapter for the official GoodMemory Python bridge client.
 
 Setup (no Docker required)::
 
-    npm install -g goodmemory@0.7.0
+    npm install -g goodmemory@0.7.1
     pip install goodmemory-client
     GOODMEMORY_HTTP_BRIDGE_TOKEN=replace-me \
       goodmemory-http-bridge --recommended
