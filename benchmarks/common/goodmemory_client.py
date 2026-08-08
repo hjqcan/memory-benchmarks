@@ -3,8 +3,8 @@ Async benchmark adapter for the official GoodMemory Python bridge client.
 
 Setup (no Docker required)::
 
-    npm install -g goodmemory@0.7.1
-    pip install goodmemory-client
+    npm install -g goodmemory@0.7.2
+    pip install goodmemory-client==0.1.0
     GOODMEMORY_HTTP_BRIDGE_TOKEN=replace-me \
       goodmemory-http-bridge --recommended
 
@@ -30,6 +30,8 @@ from goodmemory_client import (
 )
 
 logger = logging.getLogger(__name__)
+
+PUBLISHED_RECALL_ITEM_LIMIT = 12
 
 
 def format_observed_content(
@@ -99,22 +101,22 @@ class GoodMemoryClient:
         custom_instructions: str | None = None,
         metadata: dict | None = None,
     ) -> dict | None:
-        """Write every benchmark turn deterministically into one run scope."""
+        """Import each turn as a verified fact, preserving its source role."""
+        source_messages = [message for message in messages if message.get("content")]
         kept = [
             {
                 "role": "user",
                 "content": format_observed_content(
                     (
                         message["content"]
-                        if message.get("role", "user") == "user"
-                        else f"[role={message.get('role', 'user')}] {message['content']}"
+                        if (message.get("role") or "user") == "user"
+                        else f"[role={message.get('role') or 'user'}] {message['content']}"
                     ),
                     observation_date=observation_date,
                     timestamp=timestamp,
                 ),
             }
-            for message in messages
-            if message.get("content")
+            for message in source_messages
         ]
         if not kept:
             return {"skipped": True}
@@ -126,6 +128,11 @@ class GoodMemoryClient:
                 "verified": True,
                 "kindHint": "fact",
                 "messageIndex": index,
+                "metadataPatch": {
+                    "attributes": {
+                        "sourceRole": source_messages[index].get("role") or "user",
+                    }
+                },
             }
             for index in range(len(kept))
         ]
@@ -152,6 +159,15 @@ class GoodMemoryClient:
         score_debug: bool = False,
     ) -> list[dict]:
         """Recall memories and normalize them to the Mem0 result shape."""
+        effective_top_k = min(top_k, PUBLISHED_RECALL_ITEM_LIMIT)
+        if top_k > PUBLISHED_RECALL_ITEM_LIMIT:
+            logger.warning(
+                "GoodMemory 0.7.2 recall-context requested top_k=%d but returns "
+                "at most %d selected items; use cutoff 10 for comparable runs.",
+                top_k,
+                PUBLISHED_RECALL_ITEM_LIMIT,
+            )
+
         try:
             async with self.limiter:
                 result = await asyncio.to_thread(
@@ -179,14 +195,14 @@ class GoodMemoryClient:
             )
 
         normalised: list[dict[str, Any]] = []
-        for rank, item in enumerate(result.items[:top_k]):
+        for item in result.items[:effective_top_k]:
             content = item.get("content", "")
             if not content:
                 continue
             normalised.append(
                 {
                     "memory": content,
-                    "score": max(0.0, 1.0 - rank * (1.0 / max(top_k, 1))),
+                    "score": 0.0,
                     "id": item.get("memoryId", ""),
                 }
             )

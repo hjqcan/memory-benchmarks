@@ -59,7 +59,7 @@ and reciprocal-rank fusion. Embeddings are optional and add a dense channel;
 they are not required for representative provider-free recall.
 
 ```bash
-npm install -g goodmemory@0.7.1
+npm install -g goodmemory@0.7.2
 
 # Use an ephemeral store for an isolated benchmark run. The official
 # goodmemory-client dependency from requirements.txt owns the wire contract.
@@ -70,12 +70,19 @@ GOODMEMORY_STORAGE_PROVIDER=memory \
 # Run a benchmark against it
 GOODMEMORY_HTTP_BRIDGE_TOKEN=your-token python -m benchmarks.locomo.run \
   --project-name my-goodmemory-test \
-  --backend goodmemory
+  --backend goodmemory \
+  --top-k 10 \
+  --top-k-cutoffs 10
 ```
 
 The adapter requests `auto` recall by default and logs the bridge's requested
 and resolved routing whenever it falls back; override with
 `GOODMEMORY_RECALL_STRATEGY`.
+GoodMemory 0.7.2's `recall-context` contract returns at most 12 selected items
+and does not expose a caller-controlled item limit. Use cutoff 10 for a
+comparable configured cutoff; 20/50/200 cannot retrieve additional items in
+this release. The adapter preserves the bridge's ranking but records score
+`0.0` because the bridge does not publish a numeric relevance score.
 Point at a non-default bridge with `--goodmemory-host` or `GOODMEMORY_HOST`.
 Each run should use a fresh `--project-name`: GoodMemory isolates state by
 scope (the user id embeds the project name) and the bridge intentionally has

@@ -87,6 +87,7 @@ class GoodMemoryClientOfficialBridgeTest(unittest.IsolatedAsyncioTestCase):
                     "verified": True,
                     "kindHint": "fact",
                     "messageIndex": 0,
+                    "metadataPatch": {"attributes": {"sourceRole": "user"}},
                 },
                 {
                     "remember": "always",
@@ -94,12 +95,13 @@ class GoodMemoryClientOfficialBridgeTest(unittest.IsolatedAsyncioTestCase):
                     "verified": True,
                     "kindHint": "fact",
                     "messageIndex": 1,
+                    "metadataPatch": {"attributes": {"sourceRole": "assistant"}},
                 },
             ],
         )
 
     @patch("benchmarks.common.goodmemory_client.BridgeClient")
-    async def test_search_normalises_official_recall_result(
+    async def test_search_preserves_bridge_order_without_inventing_scores(
         self,
         bridge_client_type,
     ) -> None:
@@ -125,8 +127,37 @@ class GoodMemoryClientOfficialBridgeTest(unittest.IsolatedAsyncioTestCase):
         )
         self.assertEqual(
             result,
-            [{"memory": "First", "score": 1.0, "id": "m-1"}],
+            [{"memory": "First", "score": 0.0, "id": "m-1"}],
         )
+
+    @patch("benchmarks.common.goodmemory_client.BridgeClient")
+    async def test_search_discloses_and_enforces_published_recall_item_limit(
+        self,
+        bridge_client_type,
+    ) -> None:
+        bridge = bridge_client_type.return_value
+        bridge.recall_context.return_value = SimpleNamespace(
+            items=[
+                {"content": f"Memory {index}", "memoryId": f"m-{index}"}
+                for index in range(13)
+            ],
+            routing=SimpleNamespace(
+                requested_strategy="auto",
+                resolved_strategy="hybrid",
+                fallback_reason=None,
+            ),
+        )
+        client = GoodMemoryClient(recall_strategy="auto")
+
+        with self.assertLogs(
+            "benchmarks.common.goodmemory_client",
+            level="WARNING",
+        ) as logs:
+            result = await client.search("deployment", "run-2", top_k=200)
+
+        self.assertEqual(len(result), 12)
+        self.assertIn("requested top_k=200", "\n".join(logs.output))
+        self.assertIn("returns at most 12", "\n".join(logs.output))
 
 
 if __name__ == "__main__":
