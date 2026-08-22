@@ -3,7 +3,7 @@ Async benchmark adapter for the official GoodMemory Python bridge client.
 
 Setup (no Docker required)::
 
-    npm install -g goodmemory@0.7.2
+    npm install -g goodmemory@0.7.5
     pip install goodmemory-client==0.1.0
     GOODMEMORY_HTTP_BRIDGE_TOKEN=replace-me \
       goodmemory-http-bridge --recommended
@@ -162,7 +162,7 @@ class GoodMemoryClient:
         effective_top_k = min(top_k, PUBLISHED_RECALL_ITEM_LIMIT)
         if top_k > PUBLISHED_RECALL_ITEM_LIMIT:
             logger.warning(
-                "GoodMemory 0.7.2 recall-context requested top_k=%d but returns "
+                "GoodMemory 0.7.5 recall-context requested top_k=%d but returns "
                 "at most %d selected items; use cutoff 10 for comparable runs.",
                 top_k,
                 PUBLISHED_RECALL_ITEM_LIMIT,
